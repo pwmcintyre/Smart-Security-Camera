@@ -1,0 +1,9 @@
+{
+    // "python.venvPath": ".venv",
+    "python.pythonPath": ".venv\\Scripts\\python.exe",
+    "python.unitTest.unittestEnabled": false,
+    "python.unitTest.pyTestEnabled": true,
+    "python.unitTest.nosetestsEnabled": false,
+    "python.unitTest.autoTestDiscoverOnSaveEnabled": true,
+    "python.unitTest.pyTestArgs": [],
+}
