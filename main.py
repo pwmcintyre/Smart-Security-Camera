@@ -6,10 +6,13 @@ from camera import VideoCamera
 from flask_basicauth import BasicAuth
 import time
 import threading
+import pickle
+import logging
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
 email_update_interval = 600 # sends an email only once in this time interval
 video_camera = VideoCamera(flip=True) # creates a camera object, flip vertically
-object_classifier = cv2.CascadeClassifier("models/fullbody_recognition_model.xml") # an opencv classifier
+object_classifier = cv2.CascadeClassifier("models/facial_recognition_model.xml") # an opencv classifier
 
 # App Globals (do not edit)
 app = Flask(__name__)
@@ -23,15 +26,36 @@ last_epoch = 0
 def check_for_objects():
 	global last_epoch
 	while True:
-		try:
-			frame, found_obj = video_camera.get_object(object_classifier)
-			if found_obj and (time.time() - last_epoch) > email_update_interval:
+		frame, found_obj = video_camera.get_object(object_classifier)
+		if found_obj:
+
+			try:
+
+				t = time.time()
+
+				# save frame
+				logging.debug("saving frame")
+				pickling_on = open("frame.{}.pickle".format(t),"wb")
+				pickle.dump(frame, pickling_on)
+				pickling_on.close()
+
+				# save raw
+				logging.debug("saving raw")
+				raw = video_camera.get_raw()
+				pickling_on = open("raw.{}.pickle".format(t),"wb")
+				pickle.dump(raw, pickling_on)
+				pickling_on.close()
+
+			except Exception as e:
+				logging.error("Error saving files", exc_info=True)
+
+		if found_obj and (time.time() - last_epoch) > email_update_interval:
+			try:
 				last_epoch = time.time()
-				print "Sending email..."
-				sendEmail(frame)
-				print "done!"
-		except:
-			print "Error sending email: ", sys.exc_info()[0]
+				logging.info("Sending email")
+				# sendEmail(frame)
+			except Exception as e:
+				logging.error("Error sending email", exc_info=True)
 
 @app.route('/')
 @basic_auth.required

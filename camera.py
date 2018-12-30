@@ -18,6 +18,10 @@ class VideoCamera(object):
             return np.flip(frame, 0)
         return frame
 
+    def get_raw(self):
+        frame = self.vs.read()
+        return frame
+
     def get_frame(self):
         frame = self.flip_if_needed(self.vs.read())
         ret, jpeg = cv2.imencode('.jpg', frame)
