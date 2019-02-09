@@ -8,11 +8,17 @@ import time
 import threading
 import pickle
 import logging
+from os import listdir
+
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
 email_update_interval = 600 # sends an email only once in this time interval
 video_camera = VideoCamera(flip=True) # creates a camera object, flip vertically
 object_classifier = cv2.CascadeClassifier("models/facial_recognition_model.xml") # an opencv classifier
+
+files = ["./models/{}".format(f) for f in listdir("./models/") if f.endswith(".xml")]
+object_classifiers = [cv2.CascadeClassifier(path) for path in files]
+logging.info(files)
 
 # App Globals (do not edit)
 app = Flask(__name__)
@@ -26,25 +32,36 @@ last_epoch = 0
 def check_for_objects():
 	global last_epoch
 	while True:
-		frame, found_obj = video_camera.get_object(object_classifier)
+		frame, found_obj = video_camera.get_frame_with_objects(object_classifiers)
+		# cv2.imwrite( "./thing.jpg", frame )
 		if found_obj:
 
 			try:
 
 				t = time.time()
 
-				# save frame
-				logging.debug("saving frame")
-				pickling_on = open("frame.{}.pickle".format(t),"wb")
-				pickle.dump(frame, pickling_on)
-				pickling_on.close()
+				# make jpg
+				# image = video_camera.frame_to_jpeg( frame )
+				
+				# save image
+				logging.debug("saving image")
+				# cv2.imwrite("./frames/image/image.{}.jpg".format(t), frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+				cv2.imwrite( "./frames/image/image.{}.jpg".format(t), frame )
+				# cv2.imwrite( "./thing.jpg", frame )
+				# cv2.imshow('img', frame)
 
-				# save raw
-				logging.debug("saving raw")
-				raw = video_camera.get_raw()
-				pickling_on = open("raw.{}.pickle".format(t),"wb")
-				pickle.dump(raw, pickling_on)
-				pickling_on.close()
+				# # save frame
+				# logging.debug("saving frame")
+				# pickling_on = open("./frames/frame/frame.{}.pickle".format(t),"wb")
+				# pickle.dump(frame, pickling_on)
+				# pickling_on.close()
+
+				# # save raw
+				# logging.debug("saving raw")
+				# raw = video_camera.get_raw()
+				# pickling_on = open("./frames/raw/raw.{}.pickle".format(t),"wb")
+				# pickle.dump(raw, pickling_on)
+				# pickling_on.close()
 
 			except Exception as e:
 				logging.error("Error saving files", exc_info=True)
@@ -53,7 +70,7 @@ def check_for_objects():
 			try:
 				last_epoch = time.time()
 				logging.info("Sending email")
-				# sendEmail(frame)
+				# sendEmail(frame.tobytes())
 			except Exception as e:
 				logging.error("Error sending email", exc_info=True)
 
@@ -64,7 +81,7 @@ def index():
 
 def gen(camera):
     while True:
-        frame = camera.get_frame()
+        frame = camera.get_jpeg().tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
 

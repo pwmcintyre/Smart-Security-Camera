@@ -3,12 +3,34 @@ from imutils.video.pivideostream import PiVideoStream
 import imutils
 import time
 import numpy as np
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+from fractions import Fraction
+import logging
 
 class VideoCamera(object):
+
     def __init__(self, flip = False):
-        self.vs = PiVideoStream().start()
+
+        self.vs = PiVideoStream(resolution=(640, 480), framerate=6).start()
         self.flip = flip
-        time.sleep(2.0)
+
+        # # https://picamera.readthedocs.io/en/release-1.13/api_camera.html
+        # self.camera = PiCamera(
+        #     resolution=(640, 480),
+        #     framerate=Fraction(5, 1),
+        #     # rotation=90,
+        #     sensor_mode=3,
+        # )
+        # self.rawCapture = PiRGBArray(self.camera, size=(640, 480))
+
+		# self.stream = self.camera.capture_continuous(
+        #     self.rawCapture,
+		# 	format="bgr",
+        #     use_video_port=True,
+        # )
+
+        time.sleep(1.0)
 
     def __del__(self):
         self.vs.stop()
@@ -18,36 +40,44 @@ class VideoCamera(object):
             return np.flip(frame, 0)
         return frame
 
-    def get_raw(self):
+    def get_frame(self):
         frame = self.vs.read()
+        # frame = self.camera.array
+        frame = self.flip_if_needed(self.vs.read())
+        # return frame.copy()
         return frame
 
-    def get_frame(self):
-        frame = self.flip_if_needed(self.vs.read())
-        ret, jpeg = cv2.imencode('.jpg', frame)
-        return jpeg.tobytes()
+    def get_jpeg(self):
+        frame = self.get_frame()
+        jpeg = self.frame_to_jpeg(frame)
+        return jpeg
 
-    def get_object(self, classifier):
+    def frame_to_jpeg(self, frame):
+        ret, jpeg = cv2.imencode('.jpg', frame)
+        return jpeg
+
+    def get_frame_with_objects(self, classifiers):
         found_objects = False
-        frame = self.flip_if_needed(self.vs.read()).copy() 
+        frame = self.get_frame().copy()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        objects = classifier.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+        for classifier in classifiers:
 
-        if len(objects) > 0:
-            found_objects = True
+            objects = classifier.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30),
+                flags=cv2.CASCADE_SCALE_IMAGE
+            )
 
-        # Draw a rectangle around the objects
-        for (x, y, w, h) in objects:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            if len(objects) > 0:
+                found_objects = True
 
-        ret, jpeg = cv2.imencode('.jpg', frame)
-        return (jpeg.tobytes(), found_objects)
+            # Draw a rectangle around the objects
+            for (x, y, w, h) in objects:
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        return (frame, found_objects)
 
 
